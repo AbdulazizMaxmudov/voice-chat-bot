@@ -1,152 +1,160 @@
-import asyncio
-import logging
+"""
+Savollarga javob topish moduli.
+Tartib: FAQ → ChromaDB → Gemini 2.5 Flash
+"""
+
 import os
-import uuid
+import logging
 from pathlib import Path
-from typing import AsyncGenerator
 
 import chromadb
-from dotenv import load_dotenv
-from llama_index.core import Settings, StorageContext, VectorStoreIndex
-from llama_index.core.memory import ChatMemoryBuffer
-from llama_index.llms.google_genai import GoogleGenAI
-from llama_index.vector_stores.chroma import ChromaVectorStore
-from rag.embedding import GeminiEmbedding
+import google.generativeai as genai
 
-load_dotenv()
+from scripts.faq import FAQ
+
+BASE_DIR = Path(__file__).resolve().parent.parent
+CHROMA_DIR = BASE_DIR / "chroma_db"
+COLLECTION_NAME = "documents"
+
+# ChromaDB cosine distance chegarasi: bu qiymatdan yuqori = mos emas
+DISTANCE_THRESHOLD = 0.75
+
+# FAQ yoki RAG dan topilmasa qaytariladigan standart javob
+NO_ANSWER = (
+    "Kechirasiz, men bu savolga javob bera olmayman. "
+    "Iltimos, operatorlar bilan bog'laning:\n"
+    "📞 Tel: +998(71) 203-03-04\n"
+    "📧 Pochta: info@ecoekspertiza.uz\n"
+    "💬 Telegram: @eco_service_support"
+)
+
+SYSTEM_PROMPT = """Sen "Davlat Ekologik Ekspertizasi Markazi"ning raqamli yordamchisisisan.
+
+MARKAZ HAQIDA:
+Davlat ekologik ekspertizasi markazi — O'zbekiston Respublikasi Ekologiya, atrof-muhitni muhofaza qilish va iqlim o'zgarishi vazirligi tizimida faoliyat yurituvchi davlat muassasasi. Markaz atrof-muhitga ta'sir ko'rsatadigan loyiha va hujjatlarni ekspertizadan o'tkazadi, ekologik talablarning bajarilishini nazorat qiladi.
+
+Manzil: Toshkent sh., M.Ulug'bek tumani, Sayram 5-tor ko'chasi, 15 uy
+📞 Tel: +998(71) 203-03-04
+📧 Pochta: info@ecoekspertiza.uz
+💬 Telegram: @eco_service_support
+
+JAVOB BERISH QOIDALARI:
+1. Berilgan kontekst asosida TO'LIQ va ANIQ javob ber. Hech narsani qisqartirma yoki o'tkazib yubOrma.
+2. Agar savol toifalar, turlar, bosqichlar yoki ro'yxat so'rasa — BARCHASINI sanab ber, birortasini qoldirma.
+3. Savol qaysi tilda bo'lsa — javob ham o'sha tilda bo'lsin (O'zbek → O'zbekcha, Rus → Ruscha, Ingliz → Inglizcha).
+4. Raqamlar, muddatlar, miqdorlar, nomlar — aniq ko'rsat, taxminiy yozma.
+5. Agar kontekstda savol uchun yetarli ma'lumot bo'lmasa — faqat 'BILMAYMAN' so'zini yoz. Boshqa hech narsa yozma."""
 
 logger = logging.getLogger(__name__)
 
-BASE_DIR = Path(__file__).parent.parent
-CHROMA_DIR = str(BASE_DIR / "chroma_db")
-COLLECTION_NAME = "rag_documents"
-GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
 
-SYSTEM_PROMPT = (
-    "Sen hujjatlardagi ma'lumotlarga asoslangan yordamchi assistantsan. "
-    "Faqat berilgan kontekstdagi ma'lumotlarga tayanib javob ber. "
-    "Agar kontekstda javob bo'lmasa, 'Bu haqida hujjatda ma'lumot topilmadi' de. "
-    "Qisqa, aniq va foydali javob ber."
-)
-
-_cached_index: VectorStoreIndex | None = None
-_session_engines: dict[str, object] = {}
+def _setup_gemini() -> None:
+    api_key = os.getenv("GEMINI_API_KEY")
+    if not api_key:
+        raise ValueError("GEMINI_API_KEY .env faylida topilmadi")
+    genai.configure(api_key=api_key)
 
 
-def _get_index() -> VectorStoreIndex:
-    global _cached_index
-    if _cached_index is not None:
-        return _cached_index
-
-    Settings.llm = GoogleGenAI(
-        model="gemini-2.5-flash",
-        api_key=GEMINI_API_KEY,
-        temperature=0.1,
-    )
-    Settings.embed_model = GeminiEmbedding(api_key=GEMINI_API_KEY)
-
-    client = chromadb.PersistentClient(path=CHROMA_DIR)
-    collection = client.get_or_create_collection(COLLECTION_NAME)
-    vector_store = ChromaVectorStore(chroma_collection=collection)
-    storage_context = StorageContext.from_defaults(vector_store=vector_store)
-
-    _cached_index = VectorStoreIndex.from_vector_store(
-        vector_store=vector_store,
-        storage_context=storage_context,
-    )
-    logger.info("VectorStoreIndex keshga yuklandi")
-    return _cached_index
-
-
-def invalidate_index_cache() -> None:
-    """Ingest dan keyin chaqiriladi — eski kesh va barcha sessiyalarni tozalaydi."""
-    global _cached_index, _session_engines
-    _cached_index = None
-    _session_engines.clear()
-    logger.info("Index keshi va barcha sessiyalar tozalandi")
-
-
-def clear_session(session_id: str) -> None:
-    """Bitta sessiyaning suhbat tarixini o'chiradi."""
-    _session_engines.pop(session_id, None)
-    logger.info(f"Sessiya tozalandi: {session_id}")
-
-
-def _get_chat_engine(session_id: str):
+def _check_faq(question: str) -> str | None:
     """
-    Sessiyaga tegishli chat engine ni qaytaradi.
-    Har sessiya o'z ChatMemoryBuffer ini saqlab, suhbat tarixini saqlaydi.
+    Savol FAQ kalit so'zlariga mos kelishini tekshiradi.
+    Kichik harfga o'tkazib taqqoslaydi.
     """
-    if session_id not in _session_engines:
-        index = _get_index()
-        memory = ChatMemoryBuffer.from_defaults(token_limit=4000)
-        _session_engines[session_id] = index.as_chat_engine(
-            chat_mode="condense_plus_context",
-            memory=memory,
-            similarity_top_k=5,
-            system_prompt=SYSTEM_PROMPT,
+    q_lower = question.lower()
+    for item in FAQ:
+        for keyword in item["questions"]:
+            if keyword.lower() in q_lower:
+                return item["answer"]
+    return None
+
+
+def _embed_query(text: str) -> list[float]:
+    """Savolni retrieval_query vazifasi bilan vektorlashtiradi. 429 bo'lsa qayta urinadi."""
+    import time
+
+    for wait in (10, 20, 40):
+        try:
+            result = genai.embed_content(
+                model="models/gemini-embedding-001",
+                content=text,
+                task_type="retrieval_query",
+            )
+            return result["embedding"]
+        except Exception as e:
+            if "429" in str(e):
+                logger.warning(f"Embedding rate limit, {wait}s kutilmoqda...")
+                time.sleep(wait)
+            else:
+                raise
+    raise RuntimeError("Embedding: barcha urinishlar tugadi")
+
+
+async def get_answer(question: str) -> str:
+    """
+    Savolga javob qaytaradi:
+    1. FAQ tekshiradi (tez yo'l)
+    2. ChromaDB dan top-3 chunk qidiradi
+    3. Gemini 2.5 Flash orqali javob yaratadi
+    """
+    _setup_gemini()
+
+    # 1-qadam: FAQ tekshirish
+    faq_answer = _check_faq(question)
+    if faq_answer:
+        logger.info("FAQ dan javob topildi")
+        return faq_answer
+
+    # 2-qadam: ChromaDB ga ulanish
+    try:
+        client = chromadb.PersistentClient(path=str(CHROMA_DIR))
+        collection = client.get_collection(COLLECTION_NAME)
+    except Exception as e:
+        logger.warning(f"ChromaDB ulanish xatosi (hujjatlar yuklanmagandir): {e}")
+        return NO_ANSWER
+
+    # 3-qadam: Vektorli qidiruv
+    try:
+        query_embedding = _embed_query(question)
+        results = collection.query(
+            query_embeddings=[query_embedding],
+            n_results=5,
+            include=["documents", "distances"],
         )
-        logger.debug(f"Yangi chat sessiyasi yaratildi: {session_id}")
-    return _session_engines[session_id]
+    except Exception as e:
+        logger.error(f"ChromaDB qidiruvda xato: {e}")
+        return NO_ANSWER
 
+    docs: list[str] = results.get("documents", [[]])[0]
+    distances: list[float] = results.get("distances", [[]])[0]
 
-_RETRY_DELAYS = [5, 15, 30]
+    # Faqat DISTANCE_THRESHOLD dan past (yaqin) natijalarni olish
+    relevant_docs = [
+        doc for doc, dist in zip(docs, distances) if dist < DISTANCE_THRESHOLD
+    ]
 
+    if not relevant_docs:
+        logger.info("ChromaDB dan mos kontekst topilmadi")
+        return NO_ANSWER
 
-def _is_retryable(e: Exception) -> bool:
-    msg = str(e)
-    return "503" in msg or "429" in msg or "UNAVAILABLE" in msg or "RESOURCE_EXHAUSTED" in msg
+    # 4-qadam: Gemini ga yuborish
+    context = "\n\n---\n\n".join(relevant_docs)
+    prompt = f"Kontekst:\n{context}\n\nSavol: {question}"
 
+    try:
+        model = genai.GenerativeModel(
+            model_name="gemini-2.5-flash",
+            system_instruction=SYSTEM_PROMPT,
+        )
+        response = model.generate_content(prompt)
+        answer = response.text.strip()
 
-async def query_rag(question: str, session_id: str | None = None) -> str:
-    """
-    Savolni sessiya tarixi bilan birga Gemini 2.5 Flash ga yuboradi.
-    503/429 xatolarda avtomatik retry qiladi.
-    """
-    sid = session_id or str(uuid.uuid4())
-    last_exc: Exception | None = None
+        # Gemini javob bera olmaganini aniqlash
+        if answer.strip().upper() == "BILMAYMAN":
+            logger.info("Gemini kontekst asosida javob topa olmadi")
+            return NO_ANSWER
 
-    for attempt, delay in enumerate([0] + _RETRY_DELAYS):
-        if delay:
-            logger.warning(f"LLM {delay}s kutilmoqda (urinish {attempt}/{len(_RETRY_DELAYS)})")
-            await asyncio.sleep(delay)
-        try:
-            chat_engine = _get_chat_engine(sid)
-            response = await chat_engine.achat(question)
-            return str(response)
-        except Exception as e:
-            if _is_retryable(e) and attempt < len(_RETRY_DELAYS):
-                last_exc = e
-                continue
-            logger.error(f"RAG query xatosi: {e}")
-            raise RuntimeError(f"Savol qayta ishlashda xato: {e}")
+        return answer
 
-    raise RuntimeError(f"Bir necha urinishdan keyin ham xato: {last_exc}")
-
-
-async def query_rag_stream(question: str, session_id: str | None = None) -> AsyncGenerator[str, None]:
-    """
-    Savolni sessiya tarixi bilan streaming rejimda qayta ishlaydi.
-    503/429 xatolarda streaming boshlanmasidan oldin retry qiladi.
-    """
-    sid = session_id or str(uuid.uuid4())
-    last_exc: Exception | None = None
-
-    for attempt, delay in enumerate([0] + _RETRY_DELAYS):
-        if delay:
-            logger.warning(f"LLM stream {delay}s kutilmoqda (urinish {attempt}/{len(_RETRY_DELAYS)})")
-            await asyncio.sleep(delay)
-        try:
-            chat_engine = _get_chat_engine(sid)
-            streaming_response = await chat_engine.astream_chat(question)
-            async for token in streaming_response.async_response_gen():
-                yield token
-            return
-        except Exception as e:
-            if _is_retryable(e) and attempt < len(_RETRY_DELAYS):
-                last_exc = e
-                continue
-            logger.error(f"RAG stream xatosi: {e}")
-            raise RuntimeError(f"Streaming xatosi: {e}")
-
-    raise RuntimeError(f"Bir necha urinishdan keyin ham xato: {last_exc}")
+    except Exception as e:
+        logger.error(f"Gemini xatosi: {e}")
+        return NO_ANSWER

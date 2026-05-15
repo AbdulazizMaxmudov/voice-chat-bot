@@ -1,104 +1,175 @@
+"""
+UzbekVoice AI yordamida matn → audio (Text-to-Speech) moduli.
+API: https://uzbekvoice.ai/api/v1/tts
+Modellar: lola, shoira
+"""
+
 import asyncio
+import base64
 import logging
 import os
-from typing import AsyncGenerator
+import re
 
-import azure.cognitiveservices.speech as speechsdk
-from dotenv import load_dotenv
-
-load_dotenv()
+import requests
 
 logger = logging.getLogger(__name__)
 
-AZURE_SPEECH_KEY = os.getenv("AZURE_SPEECH_KEY")
-AZURE_SPEECH_REGION = os.getenv("AZURE_SPEECH_REGION")
+UZBEKVOICE_TTS_URL = "https://uzbekvoice.ai/api/v1/tts"
 
-VOICE_MAP: dict[str, str] = {
-    "uz-UZ": "uz-UZ-MadinaNeural",
-    "ru-RU": "ru-RU-SvetlanaNeural",
-    "en-US": "en-US-JennyNeural",
-}
+# Rim raqamlarini o'zbek so'zlariga almashtirish (uzunroqdan qisqaga qarab)
+_ROMAN_MAP = [
+    (r'\bXIII\b', "o'n uchinchi"),
+    (r'\bXII\b',  "o'n ikkinchi"),
+    (r'\bXI\b',   "o'n birinchi"),
+    (r'\bVIII\b', "sakkizinchi"),
+    (r'\bVII\b',  "yettinchi"),
+    (r'\bIX\b',   "to'qqizinchi"),
+    (r'\bVI\b',   "oltinchi"),
+    (r'\bIV\b',   "to'rtinchi"),
+    (r'\bIII\b',  "uchinchi"),
+    (r'\bII\b',   "ikkinchi"),
+    (r'\bXX\b',   "yigirmanchi"),
+    (r'\bXV\b',   "o'n beshinchi"),
+    (r'\bX\b',    "o'ninchi"),
+    (r'\bV\b',    "beshinchi"),
+    (r'\bI\b',    "birinchi"),
+]
 
-CHUNK_SIZE = 4096
+
+def _preprocess_for_tts(text: str) -> str:
+    """TTS ga yuborishdan oldin matni tozalaydi: markdown, emoji, rim raqamlari."""
+
+    # Markdown bold/italic belgilari: ** *** * __ _
+    text = re.sub(r'\*+', '', text)
+    text = re.sub(r'(?<!\w)_+(?!\w)', '', text)   # so'z ichidagi _ saqlanadi
+
+    # Markdown header: # ## ### ...
+    text = re.sub(r'^#{1,6}\s*', '', text, flags=re.MULTILINE)
+
+    # Kod bloki: `code` yoki ```code```
+    text = re.sub(r'`+[^`]*`+', '', text)
+
+    # Markdown link: [matn](url) → matn
+    text = re.sub(r'\[([^\]]+)\]\([^\)]+\)', r'\1', text)
+
+    # @username → username (pastki chiziqlarni bo'sh joy bilan)
+    text = re.sub(r'@(\w+)', lambda m: m.group(1).replace('_', ' '), text)
+
+    # Emoji va maxsus unicode belgilar (U+1F000–U+1FFFF, U+2600–U+27FF)
+    text = re.sub(r'[\U0001F000-\U0001FFFF\U00002600-\U000027FF]', '', text)
+
+    # Rim raqamlarini o'zbek so'zlariga almashtirish (uzunroqdan qisqaga)
+    for pattern, replacement in _ROMAN_MAP:
+        text = re.sub(pattern, replacement, text)
+
+    # Ortiqcha bo'shliqlarni tozalash
+    text = re.sub(r'[ \t]+', ' ', text)
+    text = re.sub(r'\n{3,}', '\n\n', text)
+
+    return text.strip()
 
 
-def _create_speech_config(language: str) -> speechsdk.SpeechConfig:
-    if not AZURE_SPEECH_KEY or not AZURE_SPEECH_REGION:
-        raise EnvironmentError(
-            "AZURE_SPEECH_KEY va AZURE_SPEECH_REGION .env faylida belgilanishi kerak"
+def _extract_audio_url(result: dict) -> str:
+    """
+    UzbekVoice TTS javobidan audio URL ni topadi.
+    Format: {"status":"SUCCESS","result":{"url":"https://..."},...}
+    """
+    # result.result.url — asosiy yo'l
+    inner = result.get("result")
+    if isinstance(inner, dict):
+        url = inner.get("url") or inner.get("audio_url") or inner.get("file_url")
+        if isinstance(url, str) and url.startswith("http"):
+            return url
+
+    # Yuqori darajada to'g'ridan-to'g'ri URL maydonlar
+    for field in ("url", "audio_url", "audio_link", "file_url"):
+        url = result.get(field, "")
+        if isinstance(url, str) and url.startswith("http"):
+            return url
+
+    return ""
+
+
+def _detect_audio_type(data: bytes) -> str:
+    """Audio baytlaridan MIME turini aniqlaydi."""
+    if data[:4] == b"RIFF" and data[8:12] == b"WAVE":
+        return "audio/wav"
+    if data[:3] == b"ID3" or (len(data) > 1 and data[0] == 0xFF and (data[1] & 0xE0) == 0xE0):
+        return "audio/mpeg"
+    if data[:4] == b"OggS":
+        return "audio/ogg"
+    return "audio/mpeg"
+
+
+def _synthesize_sync(text: str, api_key: str) -> tuple[bytes, str]:
+    """
+    Blokirovchi TTS chaqiruvi — run_in_executor ichida ishlaydi.
+    Returns: (audio_bytes, mime_type)
+    """
+    model = os.getenv("TTS_MODEL", "lola")
+
+    payload = {
+        "text":     text,
+        "model":    model,
+        "blocking": "true",
+    }
+    headers = {
+        "Authorization": api_key,
+        "Content-Type":  "application/json",
+    }
+
+    logger.info(f"UzbekVoice TTS: {len(text)} belgi, model={model}")
+
+    try:
+        response = requests.post(
+            UZBEKVOICE_TTS_URL,
+            headers=headers,
+            json=payload,
+            timeout=60,
         )
-    config = speechsdk.SpeechConfig(
-        subscription=AZURE_SPEECH_KEY,
-        region=AZURE_SPEECH_REGION,
-    )
-    config.speech_synthesis_voice_name = VOICE_MAP.get(language, VOICE_MAP["uz-UZ"])
-    config.set_speech_synthesis_output_format(
-        speechsdk.SpeechSynthesisOutputFormat.Raw24Khz16BitMonoPcm
-    )
-    return config
+    except requests.exceptions.Timeout:
+        raise RuntimeError("UzbekVoice TTS so'rovi vaqt limitidan oshdi (60s)")
+
+    if response.status_code != 200:
+        raise RuntimeError(
+            f"UzbekVoice TTS xatosi {response.status_code}: {response.text}"
+        )
+
+    # Agar server to'g'ridan-to'g'ri audio qaytarsa
+    content_type = response.headers.get("content-type", "")
+    if content_type.startswith("audio/"):
+        logger.info(f"TTS: to'g'ridan-to'g'ri audio ({len(response.content)} bayt)")
+        return response.content, content_type
+
+    # JSON javob
+    result = response.json()
+    logger.info(f"UzbekVoice TTS javobi: {result}")
+
+    audio_url = _extract_audio_url(result)
+    if not audio_url:
+        raise RuntimeError(
+            f"UzbekVoice TTS: audio URL topilmadi. Javob: {result}"
+        )
+
+    logger.info(f"TTS: audio yuklanmoqda: {audio_url[:60]}...")
+    audio_resp = requests.get(audio_url, timeout=30)
+    audio_resp.raise_for_status()
+    audio = audio_resp.content
+    return audio, _detect_audio_type(audio)
 
 
-async def text_to_speech_stream(
-    text: str, language: str = "uz-UZ"
-) -> AsyncGenerator[bytes, None]:
+async def text_to_speech(text: str) -> tuple[bytes, str]:
     """
-    Matnni audioga o'girib, Real-time streaming shaklida qaytaradi.
-
-    Args:
-        text: TTS ga beriladigan matn
-        language: Audio tili (uz-UZ, ru-RU, en-US)
-
-    Yields:
-        Raw PCM audio baytlari (chunks)
-
-    Raises:
-        RuntimeError: Azure TTS synthesis bekor qilinsa
+    Matnni audio baytlariga aylantiradi.
+    Returns: (audio_bytes, mime_type)  — mime_type frontend uchun kerak.
     """
-    if not text or not text.strip():
-        raise ValueError("TTS uchun matn bo'sh bo'lishi mumkin emas")
+    if not text.strip():
+        raise ValueError("Matn bo'sh, TTS bajarish mumkin emas")
 
-    # get_running_loop() — async funksiya ichida ishlatilishi to'g'ri yo'l
+    api_key = os.getenv("UZBEKVOICE_API_KEY")
+    if not api_key:
+        raise ValueError("UZBEKVOICE_API_KEY .env faylida topilmadi")
+
+    processed = _preprocess_for_tts(text)
     loop = asyncio.get_running_loop()
-    audio_queue: asyncio.Queue[bytes | Exception | None] = asyncio.Queue()
-
-    def _on_synthesizing(evt: speechsdk.SpeechSynthesisEventArgs) -> None:
-        if evt.result.audio_data:
-            loop.call_soon_threadsafe(audio_queue.put_nowait, bytes(evt.result.audio_data))
-
-    def _on_completed(evt: speechsdk.SpeechSynthesisEventArgs) -> None:
-        loop.call_soon_threadsafe(audio_queue.put_nowait, None)
-
-    def _on_canceled(evt: speechsdk.SpeechSynthesisEventArgs) -> None:
-        details = speechsdk.SpeechSynthesisCancellationDetails(evt.result)
-        err = RuntimeError(
-            f"TTS bekor qilindi: {details.reason} — {details.error_details}"
-        )
-        logger.error(str(err))
-        # None o'rniga Exception yuboriladi — consumer uni raise qiladi
-        loop.call_soon_threadsafe(audio_queue.put_nowait, err)
-
-    speech_config = _create_speech_config(language)
-    synthesizer = speechsdk.SpeechSynthesizer(speech_config=speech_config, audio_config=None)
-
-    synthesizer.synthesizing.connect(_on_synthesizing)
-    synthesizer.synthesis_completed.connect(_on_completed)
-    synthesizer.synthesis_canceled.connect(_on_canceled)
-
-    loop.run_in_executor(None, lambda: synthesizer.speak_text_async(text).get())
-
-    while True:
-        chunk = await audio_queue.get()
-        if chunk is None:
-            break
-        if isinstance(chunk, Exception):
-            raise chunk
-        for i in range(0, len(chunk), CHUNK_SIZE):
-            yield chunk[i : i + CHUNK_SIZE]
-
-
-async def text_to_speech_bytes(text: str, language: str = "uz-UZ") -> bytes:
-    """Matnni to'liq audioga o'girib bayt sifatida qaytaradi (test uchun)."""
-    chunks: list[bytes] = []
-    async for chunk in text_to_speech_stream(text, language):
-        chunks.append(chunk)
-    return b"".join(chunks)
+    return await loop.run_in_executor(None, _synthesize_sync, processed, api_key)

@@ -1,120 +1,172 @@
-import logging
+"""
+documents/ papkasidagi Word fayllarni o'qib, ChromaDB ga yuklash moduli.
+Gemini embedding-001 modeli bilan vektorlashtiradi.
+"""
+
 import os
+import logging
 from pathlib import Path
 
 import chromadb
-from dotenv import load_dotenv
-from llama_index.core import Document, Settings, StorageContext, VectorStoreIndex
-from llama_index.core.node_parser import TokenTextSplitter
-from llama_index.readers.file import DocxReader, PDFReader
-from llama_index.vector_stores.chroma import ChromaVectorStore
-from rag.embedding import GeminiEmbedding
+import google.generativeai as genai
+from docx import Document
 
-load_dotenv()
+# Yo'llar: bu fayl backend/rag/ da, shuning uchun ikki daraja yuqorida backend/
+BASE_DIR = Path(__file__).resolve().parent.parent
+DOCUMENTS_DIR = BASE_DIR / "documents"
+CHROMA_DIR = BASE_DIR / "chroma_db"
+COLLECTION_NAME = "documents"
 
 logger = logging.getLogger(__name__)
 
-BASE_DIR = Path(__file__).parent.parent
-DOCS_DIR = BASE_DIR / "documents"
-CHROMA_DIR = str(BASE_DIR / "chroma_db")
-COLLECTION_NAME = "rag_documents"
 
-GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
-
-SUPPORTED_EXTENSIONS = {".docx", ".pdf", ".txt", ".md"}
+def _setup_gemini() -> None:
+    api_key = os.getenv("GEMINI_API_KEY")
+    if not api_key:
+        raise ValueError("GEMINI_API_KEY .env faylida topilmadi")
+    genai.configure(api_key=api_key)
 
 
-def _setup_embedding() -> None:
-    Settings.embed_model = GeminiEmbedding(api_key=GEMINI_API_KEY)
-    Settings.llm = None
+def _read_docx(file_path: Path) -> str:
+    """Word fayldan barcha matnni o'qiydi."""
+    doc = Document(file_path)
+    return "\n".join(p.text for p in doc.paragraphs if p.text.strip())
 
 
-def _load_file(file_path: Path) -> list[Document]:
-    """Fayl kengaytmasiga qarab mos reader bilan yuklaydi."""
-    ext = file_path.suffix.lower()
-
-    if ext == ".docx":
-        docs = DocxReader().load_data(file=file_path)
-    elif ext == ".pdf":
-        docs = PDFReader().load_data(file=file_path)
-    elif ext in {".txt", ".md"}:
-        text = file_path.read_text(encoding="utf-8", errors="replace")
-        docs = [Document(text=text)]
-    else:
-        raise ValueError(f"Qo'llab-quvvatlanmaydigan format: {ext}")
-
-    for doc in docs:
-        doc.metadata["source"] = file_path.name
-    return docs
+def _chunk_text(text: str, chunk_size: int = 800, overlap: int = 120) -> list[str]:
+    """Matnni chunk_size belgilik bo'laklarga, overlap qo'shib bo'ladi."""
+    chunks: list[str] = []
+    start = 0
+    text_len = len(text)
+    while start < text_len:
+        end = min(start + chunk_size, text_len)
+        chunk = text[start:end].strip()
+        if chunk:
+            chunks.append(chunk)
+        if end >= text_len:
+            break
+        start = end - overlap
+    return chunks
 
 
-def ingest_documents() -> dict:
-    """
-    /backend/documents/ papkasidagi hujjatlarni (.docx, .pdf, .txt, .md):
-      1. O'qiydi
-      2. 512 token / 50 overlap bo'laklarga ajratadi
-      3. Collection ni tozalab, Gemini embedding bilan ChromaDB ga saqlaydi
+def _embed_batch_with_retry(batch: list[str], batch_num: int, total: int) -> list[list[float]]:
+    """Bitta batchni embed qiladi; 429 bo'lsa qayta urinadi."""
+    import time
 
-    Returns:
-        dict: {total_chunks, processed_files, failed_files, total_documents}
-    """
-    if not DOCS_DIR.exists():
-        DOCS_DIR.mkdir(parents=True)
-        raise FileNotFoundError(
-            f"Hujjatlar papkasi yaratildi, lekin bo'sh: {DOCS_DIR}. "
-            "Iltimos, hujjatlarni joylashtiring."
-        )
-
-    doc_files = [f for f in DOCS_DIR.iterdir() if f.suffix.lower() in SUPPORTED_EXTENSIONS]
-    if not doc_files:
-        raise ValueError(
-            f"Hech qanday hujjat topilmadi: {DOCS_DIR}. "
-            f"Qabul qilinadigan formatlar: {SUPPORTED_EXTENSIONS}"
-        )
-
-    logger.info(f"{len(doc_files)} ta hujjat topildi")
-
-    _setup_embedding()
-
-    all_documents: list[Document] = []
-    processed: list[str] = []
-    failed: list[dict] = []
-
-    for file_path in doc_files:
+    wait_times = [15, 30, 65]
+    for attempt, wait in enumerate(wait_times + [None], start=1):
         try:
-            docs = _load_file(file_path)
-            all_documents.extend(docs)
-            processed.append(file_path.name)
-            logger.info(f"O'qildi: {file_path.name} ({len(docs)} segment)")
+            result = genai.embed_content(
+                model="models/gemini-embedding-001",
+                content=batch,
+                task_type="retrieval_document",
+            )
+            logger.info(f"Batch {batch_num}/{total} tayyor: {len(batch)} ta chunk")
+            return result["embedding"]
         except Exception as e:
-            failed.append({"file": file_path.name, "error": str(e)})
-            logger.error(f"O'qishda xato [{file_path.name}]: {e}")
+            if "429" in str(e) and wait is not None:
+                logger.warning(f"Rate limit (429), {wait}s kutilmoqda (urinish {attempt}/{len(wait_times)})...")
+                time.sleep(wait)
+            else:
+                raise
+    raise RuntimeError("Embedding uchun barcha urinishlar tugadi")
 
-    if not all_documents:
-        raise RuntimeError("Hech qanday hujjat muvaffaqiyatli o'qilmadi")
 
-    splitter = TokenTextSplitter(chunk_size=512, chunk_overlap=50)
-    nodes = splitter.get_nodes_from_documents(all_documents)
-    logger.info(f"{len(nodes)} ta chunk yaratildi")
+def _embed_texts(texts: list[str]) -> list[list[float]]:
+    """
+    Matnlarni 100 tadan batch qilib embed qiladi.
+    Free tier limiti: 100 matn/daqiqa → har batch dan keyin 70 soniya kutiladi.
+    """
+    import time
 
-    # Eski ma'lumotlarni o'chirib qayta yozish — dublikatlar oldini oladi
-    client = chromadb.PersistentClient(path=CHROMA_DIR)
+    BATCH_SIZE = 100
+    all_embeddings: list[list[float]] = []
+    total_batches = (len(texts) + BATCH_SIZE - 1) // BATCH_SIZE
+
+    for i in range(0, len(texts), BATCH_SIZE):
+        batch = texts[i : i + BATCH_SIZE]
+        batch_num = i // BATCH_SIZE + 1
+
+        if i > 0:
+            logger.info(f"Rate limit: 70 soniya kutilmoqda (batch {batch_num}/{total_batches})...")
+            time.sleep(70)
+
+        embeddings = _embed_batch_with_retry(batch, batch_num, total_batches)
+        all_embeddings.extend(embeddings)
+
+    return all_embeddings
+
+
+def _ingest_sync() -> dict:
+    """Blokirovchi ingest — run_in_executor ichida ishlaydi."""
+    _setup_gemini()
+
+    DOCUMENTS_DIR.mkdir(parents=True, exist_ok=True)
+
+    docx_files = [f for f in DOCUMENTS_DIR.glob("*.docx") if not f.name.startswith("~$")]
+    if not docx_files:
+        logger.info("documents/ papkasida .docx fayl topilmadi")
+        return {"message": "Hech qanday fayl topilmadi"}
+
+    client = chromadb.PersistentClient(path=str(CHROMA_DIR))
+
     try:
         client.delete_collection(COLLECTION_NAME)
+        logger.info("Eski collection o'chirildi")
     except Exception:
-        pass  # Hali mavjud bo'lmasa ham muammo yo'q
-    collection = client.create_collection(COLLECTION_NAME)
-    logger.info("Collection tozalandi, yangi ma'lumotlar yozilmoqda")
+        pass
 
-    vector_store = ChromaVectorStore(chroma_collection=collection)
-    storage_context = StorageContext.from_defaults(vector_store=vector_store)
-    VectorStoreIndex(nodes, storage_context=storage_context, show_progress=True)
+    collection = client.create_collection(
+        name=COLLECTION_NAME,
+        metadata={"hnsw:space": "cosine"},
+    )
 
-    logger.info("Barcha chunklar ChromaDB ga saqlandi")
+    chunk_offset = 0
+    loaded_files: list[str] = []
+
+    for file_path in docx_files:
+        try:
+            logger.info(f"O'qilmoqda: {file_path.name}")
+            text = _read_docx(file_path)
+            if not text.strip():
+                logger.warning(f"{file_path.name} bo'sh, o'tkazildi")
+                continue
+
+            chunks = _chunk_text(text)
+            if not chunks:
+                continue
+
+            logger.info(f"{file_path.name}: {len(chunks)} ta chunk")
+            embeddings = _embed_texts(chunks)
+
+            collection.add(
+                documents=chunks,
+                embeddings=embeddings,
+                ids=[f"chunk_{chunk_offset + i}" for i in range(len(chunks))],
+                metadatas=[{"source": file_path.name} for _ in chunks],
+            )
+
+            chunk_offset += len(chunks)
+            loaded_files.append(file_path.name)
+            logger.info(f"{file_path.name} muvaffaqiyatli yuklandi")
+
+        except Exception as e:
+            logger.error(f"{file_path.name} yuklashda xato: {e}")
+
+    if not loaded_files:
+        return {"message": "Fayllar o'qishda xatolik yuz berdi, loglarni tekshiring"}
 
     return {
-        "total_chunks": len(nodes),
-        "processed_files": processed,
-        "failed_files": failed,
-        "total_documents": len(all_documents),
+        "message": f"{len(loaded_files)} ta fayl yuklandi",
+        "files": loaded_files,
     }
+
+
+async def ingest_documents() -> dict:
+    """
+    documents/ papkasidagi barcha .docx fayllarni ChromaDB ga yuklaydi.
+    Blokirovchi ish thread pool da bajariladi — server muzlamaydi.
+    """
+    import asyncio
+    loop = asyncio.get_running_loop()
+    return await loop.run_in_executor(None, _ingest_sync)

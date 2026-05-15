@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { motion } from 'framer-motion'
 import NatureBackground from './components/NatureBackground'
 import BotVideo from './components/BotVideo'
+import ChatWidget from './components/ChatWidget'
 import thinkingVideo from './video/thinking.mp4'
 import speakingVideo from './video/speaking.mp4'
 import logo from './video/logo.png'
@@ -17,8 +18,9 @@ const stateConfig: Record<BotState, { label: string; icon: string; hex: string; 
 
 // Videos ready so far; idle & listening will be added later
 const videoMap: Partial<Record<BotState, string>> = {
-  thinking: thinkingVideo,
-  speaking: speakingVideo,
+  thinking:  thinkingVideo,
+  listening: thinkingVideo,   // hozircha thinking videosi, keyinroq alohida video qo'shiladi
+  speaking:  speakingVideo,
 }
 
 // Buttons shown until all 4 videos are ready
@@ -57,40 +59,8 @@ export default function App() {
         </div>
       </div>
 
-      {/* Top-right: thinking + speaking buttons only */}
-      <div className="absolute top-8 right-8 flex flex-col gap-2">
-        {visibleButtons.map((state) => {
-          const s = stateConfig[state]
-          const active = botState === state
-          return (
-            <motion.button
-              key={state}
-              whileHover={{ scale: 1.06, x: -2 }}
-              whileTap={{ scale: 0.94 }}
-              onClick={() => setBotState(state)}
-              className="flex items-center gap-2 px-5 py-2 rounded-2xl text-sm font-semibold cursor-pointer transition-all duration-300"
-              style={
-                active
-                  ? {
-                      background: s.hex,
-                      color: '#fff',
-                      boxShadow: `0 0 24px ${s.bg}, 0 4px 16px rgba(0,0,0,0.3)`,
-                      border: `1px solid ${s.hex}`,
-                    }
-                  : {
-                      background: 'rgba(0,0,0,0.25)',
-                      backdropFilter: 'blur(12px)',
-                      color: 'rgba(255,255,255,0.7)',
-                      border: '1px solid rgba(255,255,255,0.15)',
-                    }
-              }
-            >
-              <span>{s.icon}</span>
-              <span>{s.label}</span>
-            </motion.button>
-          )
-        })}
-      </div>
+      {/* Chat widget — mic, drawer, ticker */}
+      <ChatWidget setBotState={setBotState} />
     </div>
   )
 }

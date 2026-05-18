@@ -50,6 +50,18 @@ export default function BotVideo({ src, className }: Props) {
     video.addEventListener('loadedmetadata', onLoadedMetadata)
     video.addEventListener('play', () => { animId = requestAnimationFrame(processFrame) })
 
+    // autoPlay attribute alone can be blocked by browsers (especially on deploy).
+    // Explicitly call play() and register unlock handlers on user interaction as fallback.
+    void video.play().catch(() => {
+      const unlock = () => {
+        void video.play()
+        document.removeEventListener('click', unlock)
+        document.removeEventListener('touchstart', unlock)
+      }
+      document.addEventListener('click', unlock)
+      document.addEventListener('touchstart', unlock)
+    })
+
     return () => {
       cancelAnimationFrame(animId)
     }

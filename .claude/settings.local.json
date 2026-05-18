@@ -6,7 +6,8 @@
       "Bash(git commit *)",
       "PowerShell(dir \"C:\\\\Users\\\\User\\\\Desktop\\\\WORK\\\\voice-chat-bot\\\\frontend\\\\src\" -Recurse | Where-Object { !$_.PSIsContainer } | Select-Object FullName)",
       "PowerShell(New-Item *)",
-      "PowerShell(dir \"C:\\\\Users\\\\User\\\\Desktop\\\\WORK\\\\voice-chat-bot\\\\frontend\\\\public\" -Recurse | Where-Object { !$_.PSIsContainer })"
+      "PowerShell(dir \"C:\\\\Users\\\\User\\\\Desktop\\\\WORK\\\\voice-chat-bot\\\\frontend\\\\public\" -Recurse | Where-Object { !$_.PSIsContainer })",
+      "Bash(dir C:/Users/User/Desktop/WORK/voice-chat-bot/backend/ /a)"
     ]
   }
 }

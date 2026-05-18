@@ -65,6 +65,20 @@ FAQ = [
         ),
     },
 
+    # ── Salomlashish ───────────────────────────────────────────────────────────
+    {
+        "questions": [
+            "salom", "assalom", "assalomu alaykum", "salomlar",
+            "привет", "здравствуйте", "здравствуй", "добрый день",
+            "добрый утро", "добрый вечер", "доброе утро", "доброе",
+            "hello", "hi", "hey", "good morning", "good afternoon", "good evening",
+        ],
+        "answer": (
+            "Assalomu alaykum! Davlat Ekologik Ekspertizasi Markazining raqamli yordamchisiga xush kelibsiz.\n\n"
+            "Filiallar, manzillar, telefon raqamlar yoki markaz xizmatlari haqida savol bersangiz, javob beraman."
+        ),
+    },
+
     # ── Xayrlashuv ─────────────────────────────────────────────────────────────
     {
         "questions": [

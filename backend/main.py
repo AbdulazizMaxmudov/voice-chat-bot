@@ -10,7 +10,9 @@ import base64
 import logging
 import os
 from contextlib import asynccontextmanager
+from pathlib import Path
 
+import chromadb
 from dotenv import load_dotenv
 from fastapi import FastAPI, File, HTTPException, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
@@ -20,6 +22,8 @@ from rag.ingest import ingest_documents
 from rag.query import get_answer
 from speech.stt import speech_to_text
 from speech.tts import text_to_speech
+
+BASE_DIR = Path(__file__).resolve().parent
 
 # .env faylini yuklash (import dan oldin bo'lishi kerak)
 load_dotenv()
@@ -34,6 +38,22 @@ logger = logging.getLogger(__name__)
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     logger.info("Server ishga tushdi")
+    # Auto-ingest: ChromaDB bo'sh yoki collection mavjud bo'lmasa — hujjatlarni yukla
+    try:
+        client = chromadb.PersistentClient(path=str(BASE_DIR / "chroma_db"))
+        try:
+            col = client.get_collection("documents")
+            count = col.count()
+        except Exception:
+            count = 0
+        if count == 0:
+            logger.info("ChromaDB bo'sh — avtomatik ingest boshlanmoqda...")
+            result = await ingest_documents()
+            logger.info(f"Avtomatik ingest natijasi: {result}")
+        else:
+            logger.info(f"ChromaDB tayyor: {count} ta chunk")
+    except Exception as e:
+        logger.warning(f"Avtomatik ingest tekshirishda xato: {e}")
     yield
     logger.info("Server to'xtatildi")
 

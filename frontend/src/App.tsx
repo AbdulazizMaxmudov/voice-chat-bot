@@ -3,10 +3,6 @@ import { motion } from 'framer-motion'
 import NatureBackground from './components/NatureBackground'
 import BotVideo from './components/BotVideo'
 import ChatWidget from './components/ChatWidget'
-import idleVideo     from './video/idle.mp4'
-import thinkingVideo from './video/thinking.mp4'
-import listeningVideo from './video/listening.mp4'
-import speakingVideo from './video/speaking.mp4'
 import logo from './video/logo.png'
 
 export type BotState = 'idle' | 'thinking' | 'listening' | 'speaking'
@@ -19,10 +15,10 @@ const stateConfig: Record<BotState, { label: string; icon: string; hex: string; 
 }
 
 const videoMap: Record<BotState, string> = {
-  idle:      idleVideo,
-  thinking:  thinkingVideo,
-  listening: listeningVideo,
-  speaking:  speakingVideo,
+  idle:      '/idle.mp4',
+  thinking:  '/thinking.mp4',
+  listening: '/listening.mp4',
+  speaking:  '/speaking.mp4',
 }
 
 export default function App() {

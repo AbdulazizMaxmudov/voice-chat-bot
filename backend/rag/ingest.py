@@ -75,10 +75,8 @@ def _embed_batch_with_retry(batch: list[str], batch_num: int, total: int) -> lis
 def _embed_texts(texts: list[str]) -> list[list[float]]:
     """
     Matnlarni 100 tadan batch qilib embed qiladi.
-    Free tier limiti: 100 matn/daqiqa → har batch dan keyin 70 soniya kutiladi.
+    429 xato faqat _embed_batch_with_retry ichida retry orqali boshqariladi.
     """
-    import time
-
     BATCH_SIZE = 100
     all_embeddings: list[list[float]] = []
     total_batches = (len(texts) + BATCH_SIZE - 1) // BATCH_SIZE
@@ -86,11 +84,6 @@ def _embed_texts(texts: list[str]) -> list[list[float]]:
     for i in range(0, len(texts), BATCH_SIZE):
         batch = texts[i : i + BATCH_SIZE]
         batch_num = i // BATCH_SIZE + 1
-
-        if i > 0:
-            logger.info(f"Rate limit: 70 soniya kutilmoqda (batch {batch_num}/{total_batches})...")
-            time.sleep(70)
-
         embeddings = _embed_batch_with_retry(batch, batch_num, total_batches)
         all_embeddings.extend(embeddings)
 

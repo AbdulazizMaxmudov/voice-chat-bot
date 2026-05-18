@@ -14,6 +14,7 @@ body {
 #root {
   width: 100%;
   height: 100vh;
+  height: 100dvh; /* mobil brauzerlarda address bar hisobga olinadi */
 }
 
 /* Javob matni o'ngdan chapga oqib o'tuvchi ticker */

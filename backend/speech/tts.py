@@ -37,14 +37,17 @@ _ROMAN_MAP = [
 
 
 def _preprocess_for_tts(text: str) -> str:
-    """TTS ga yuborishdan oldin matni tozalaydi: markdown, emoji, rim raqamlari."""
+    """TTS ga yuborishdan oldin matni tozalaydi: markdown, emoji, rim raqamlari, satr bo'limlari."""
 
-    # Markdown bold/italic belgilari: ** *** * __ _
+    # Markdown bold/italic: ** *** * __ _
     text = re.sub(r'\*+', '', text)
-    text = re.sub(r'(?<!\w)_+(?!\w)', '', text)   # so'z ichidagi _ saqlanadi
+    text = re.sub(r'(?<!\w)_+(?!\w)', '', text)
 
     # Markdown header: # ## ### ...
     text = re.sub(r'^#{1,6}\s*', '', text, flags=re.MULTILINE)
+
+    # Ro'yxat belgilari satr boshida: "- band", "• band" → bo'shliq
+    text = re.sub(r'^\s*[-•]\s+', ' ', text, flags=re.MULTILINE)
 
     # Kod bloki: `code` yoki ```code```
     text = re.sub(r'`+[^`]*`+', '', text)
@@ -52,19 +55,29 @@ def _preprocess_for_tts(text: str) -> str:
     # Markdown link: [matn](url) → matn
     text = re.sub(r'\[([^\]]+)\]\([^\)]+\)', r'\1', text)
 
-    # @username → username (pastki chiziqlarni bo'sh joy bilan)
+    # @username → username
     text = re.sub(r'@(\w+)', lambda m: m.group(1).replace('_', ' '), text)
 
-    # Emoji va maxsus unicode belgilar (U+1F000–U+1FFFF, U+2600–U+27FF)
+    # Emoji va maxsus unicode belgilar
     text = re.sub(r'[\U0001F000-\U0001FFFF\U00002600-\U000027FF]', '', text)
 
     # Rim raqamlarini o'zbek so'zlariga almashtirish (uzunroqdan qisqaga)
     for pattern, replacement in _ROMAN_MAP:
         text = re.sub(pattern, replacement, text)
 
-    # Ortiqcha bo'shliqlarni tozalash
+    # Satr bo'limlari → tinish belgisi/bo'shliq
+    # \n\n → ". "  (gap tugadi, pauza)
+    # \n   → ", "  (ro'yxat bandi, kichik pauza)
+    text = re.sub(r'\n\n+', '. ', text)
+    text = re.sub(r'\n', ', ', text)
+
+    # Ortiqcha nuqta-vergullarni tozalash
+    text = re.sub(r'\.\s*,', '.', text)
+    text = re.sub(r',\s*,', ',', text)
+    text = re.sub(r'\.{2,}', '.', text)
+
+    # Ortiqcha bo'shliqlar
     text = re.sub(r'[ \t]+', ' ', text)
-    text = re.sub(r'\n{3,}', '\n\n', text)
 
     return text.strip()
 

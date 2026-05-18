@@ -3,7 +3,7 @@ import { AnimatePresence, motion } from 'framer-motion'
 import type { BotState } from '../App'
 import { WavRecorder } from '../utils/wavRecorder'
 
-const API = 'http://localhost:8000'
+const API = import.meta.env.VITE_API_URL ?? 'http://localhost:8000'
 
 interface Message {
   id: string
@@ -94,7 +94,7 @@ export default function ChatWidget({ setBotState }: Props) {
     } catch (e) {
       console.error('Voice xato:', e)
       addMsg('bot', '❌ Xato yuz berdi. Qayta urinib ko\'ring.')
-      setBotState('thinking')
+      setBotState('idle')
     } finally {
       setLoading(false)
     }
@@ -118,11 +118,11 @@ export default function ChatWidget({ setBotState }: Props) {
       addMsg('bot', data.answer)
       setTickerText(data.answer)
       setBotState('speaking')
-      setTimeout(() => setBotState('thinking'), 6000)
+      setTimeout(() => setBotState('idle'), 6000)
     } catch (e) {
       console.error('Text xato:', e)
       addMsg('bot', '❌ Xato yuz berdi.')
-      setBotState('thinking')
+      setBotState('idle')
     } finally {
       setLoading(false)
     }
@@ -134,8 +134,8 @@ export default function ChatWidget({ setBotState }: Props) {
     const url   = URL.createObjectURL(blob)
     const audio = new Audio(url)
     setBotState('speaking')
-    audio.onended = () => { setBotState('thinking'); URL.revokeObjectURL(url) }
-    audio.onerror = () => { setBotState('thinking'); URL.revokeObjectURL(url) }
+    audio.onended = () => { setBotState('idle'); URL.revokeObjectURL(url) }
+    audio.onerror = () => { setBotState('idle'); URL.revokeObjectURL(url) }
     audio.play()
   }
 
@@ -147,10 +147,10 @@ export default function ChatWidget({ setBotState }: Props) {
       {tickerText && (
         <div
           className="absolute left-0 right-0 overflow-hidden pointer-events-none"
-          style={{ bottom: '9rem' }}
+          style={{ bottom: 'calc(5rem + env(safe-area-inset-bottom, 0px))' }}
         >
           <span
-            className="ticker-text text-white text-xl font-semibold drop-shadow-lg px-6"
+            className="ticker-text text-white text-base sm:text-xl font-semibold drop-shadow-lg px-4 sm:px-6"
             style={{ '--ticker-duration': tickerDuration } as CSSProperties}
             onAnimationEnd={() => setTickerText('')}
           >
@@ -160,7 +160,10 @@ export default function ChatWidget({ setBotState }: Props) {
       )}
 
       {/* ── Pastki boshqaruv: Start + Chat ── */}
-      <div className="absolute bottom-8 right-6 flex items-end gap-4">
+      <div
+        className="absolute right-4 sm:right-6 flex items-end gap-3 sm:gap-4"
+        style={{ bottom: 'calc(1.5rem + env(safe-area-inset-bottom, 0px))' }}
+      >
 
         {/* 🔴 START / STOP tugmasi */}
         <motion.button

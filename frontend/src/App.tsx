@@ -3,7 +3,9 @@ import { motion } from 'framer-motion'
 import NatureBackground from './components/NatureBackground'
 import BotVideo from './components/BotVideo'
 import ChatWidget from './components/ChatWidget'
+import idleVideo     from './video/idle.mp4'
 import thinkingVideo from './video/thinking.mp4'
+import listeningVideo from './video/listening.mp4'
 import speakingVideo from './video/speaking.mp4'
 import logo from './video/logo.png'
 
@@ -16,21 +18,18 @@ const stateConfig: Record<BotState, { label: string; icon: string; hex: string; 
   speaking:  { label: 'Gapirmoqda', icon: '🔊', hex: '#3b82f6', bg: 'rgba(59,130,246,0.2)'  },
 }
 
-// Videos ready so far; idle & listening will be added later
-const videoMap: Partial<Record<BotState, string>> = {
+const videoMap: Record<BotState, string> = {
+  idle:      idleVideo,
   thinking:  thinkingVideo,
-  listening: thinkingVideo,   // hozircha thinking videosi, keyinroq alohida video qo'shiladi
+  listening: listeningVideo,
   speaking:  speakingVideo,
 }
 
-// Buttons shown until all 4 videos are ready
-const visibleButtons: BotState[] = ['thinking', 'speaking']
-
 export default function App() {
-  const [botState, setBotState] = useState<BotState>('thinking')
+  const [botState, setBotState] = useState<BotState>('idle')
 
   return (
-    <div className="relative w-full h-screen overflow-hidden">
+    <div className="relative w-full h-screen h-dvh overflow-hidden">
       <NatureBackground />
 
       {/* Bot videos — all mounted, crossfade between them */}
@@ -42,18 +41,18 @@ export default function App() {
           className="absolute bottom-0 left-1/2 -translate-x-1/2"
           style={{ pointerEvents: 'none' }}
         >
-          <BotVideo src={src} className="w-[118rem] max-w-[95vw]" />
+          <BotVideo src={src} className="w-[118rem] max-w-[95vw] sm:max-w-[85vw]" />
         </motion.div>
       ))}
 
       {/* Top-left: logo + title */}
-      <div className="absolute top-6 left-6 flex items-center gap-3">
-        <img src={logo} alt="logo" className="h-[67px] w-auto drop-shadow-lg" />
+      <div className="absolute top-4 left-4 sm:top-6 sm:left-6 flex items-center gap-2 sm:gap-3">
+        <img src={logo} alt="logo" className="h-[44px] sm:h-[67px] w-auto drop-shadow-lg" />
         <div>
-          <p className="text-white font-bold text-lg leading-tight drop-shadow">
+          <p className="text-white font-bold text-sm sm:text-lg leading-tight drop-shadow">
             Davlat Ekologik
           </p>
-          <p className="text-white font-bold text-lg leading-tight drop-shadow">
+          <p className="text-white font-bold text-sm sm:text-lg leading-tight drop-shadow">
             Ekspertizasi Markazi
           </p>
         </div>

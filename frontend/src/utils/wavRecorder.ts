@@ -12,8 +12,9 @@ export class WavRecorder {
   readonly sampleRate: number
 
   constructor(stream: MediaStream) {
-    // 16 kHz nutq tanib olish uchun optimal
     this.ctx = new AudioContext({ sampleRate: 16000 })
+    // iOS Safari AudioContext suspended boshlanadi — user gesture ichida resume kerak
+    if (this.ctx.state === 'suspended') void this.ctx.resume()
     this.sampleRate = this.ctx.sampleRate
 
     this.source    = this.ctx.createMediaStreamSource(stream)

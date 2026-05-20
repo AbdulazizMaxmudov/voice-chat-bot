@@ -65,13 +65,32 @@ FAQ = [
         ),
     },
 
+    # ── Ma'lumot manbai ───────────────────────────────────────────────────────
+    {
+        "questions": [
+            # O'zbek
+            "ma'lumot qayerdan", "ma'lumotlarni qayerdan", "qayerdan olasan",
+            "qayerdan olding", "qayerdan bilasan", "manba nima", "ma'lumot manbai",
+            # Rus / kirill
+            "откуда информацию", "откуда берёшь", "откуда данные", "источник данных",
+            # Ingliz
+            "where do you get", "data source", "information source",
+        ],
+        "answer": (
+            "Men ma'lumotlarni O'zbekiston Respublikasi Vazirlar Mahkamasining "
+            "541-sonli va 1036-sonli qarorlaridan olaman.\n\n"
+            "Bu qarorlar Davlat ekologik ekspertizasining qoidalari, tartiblari "
+            "va talablarini to'liq belgilaydi."
+        ),
+    },
+
     # ── Salomlashish ───────────────────────────────────────────────────────────
     {
         "questions": [
             "salom", "assalom", "assalomu alaykum", "salomlar",
             "привет", "здравствуйте", "здравствуй", "добрый день",
             "добрый утро", "добрый вечер", "доброе утро", "доброе",
-            "hello", "hi", "hey", "good morning", "good afternoon", "good evening",
+            "hello", "hey", "good morning", "good afternoon", "good evening",
         ],
         "answer": (
             "Assalomu alaykum! Davlat Ekologik Ekspertizasi Markazining raqamli yordamchisiga xush kelibsiz.\n\n"
@@ -106,11 +125,10 @@ FAQ = [
         ],
         "answer": (
             "Qoraqalpog'iston Respublikasi filiali:\n"
+            "Manzil: Qoraqalpog'iston Respublikasi, Nukus shahri, Tong-nuri ko'chasi.\n"
             "Direktor: Jollibekov Murat Baxtiyarovich\n"
             "Telefon: +998 61 224 06 69\n"
-            "Email: qoraqalpogiston@ecoekspeitiza.uz\n"
-            "Manzil: Qoraqalpog'iston Respublikasi, Nukus shahri, Tong-nuri ko'chasi\n"
-            "Qabul vaqti: Dushanba 10:00 – 12:00"
+            "Qabul vaqti: Dushanba 10:00 dan 12:00 gacha."
         ),
     },
 
@@ -125,11 +143,10 @@ FAQ = [
         ],
         "answer": (
             "Andijon viloyati filiali:\n"
+            "Manzil: Andijon viloyati, Andijon shahri, Kunchilik ko'chasi, 75-uy.\n"
             "Direktor: Mamanazarov Abdumannob Abduraxmonovich\n"
             "Telefon: +998 74 237 07 00\n"
-            "Email: andijon@ecoekspeitiza.uz\n"
-            "Manzil: Andijon viloyati, Andijon shahri, Kunchilik ko'chasi, 75-uy\n"
-            "Qabul vaqti: Dushanba 10:00 – 12:00"
+            "Qabul vaqti: Dushanba 10:00 dan 12:00 gacha."
         ),
     },
 
@@ -144,11 +161,10 @@ FAQ = [
         ],
         "answer": (
             "Buxoro viloyati filiali:\n"
+            "Manzil: Buxoro viloyati, Buxoro shahri, Ibn Sino ko'chasi, 206-uy.\n"
             "Direktor: Ruziyev Erkin Xolboyevich\n"
             "Telefon: +998 55 304 07 42\n"
-            "Email: buxoro@ecoekspertiza.uz\n"
-            "Manzil: Buxoro viloyati, Buxoro shahri, Ibn Sino ko'chasi, 206-uy\n"
-            "Qabul vaqti: Dushanba 10:00 – 12:00"
+            "Qabul vaqti: Dushanba 10:00 dan 12:00 gacha."
         ),
     },
 
@@ -163,11 +179,10 @@ FAQ = [
         ],
         "answer": (
             "Jizzax viloyati filiali:\n"
+            "Manzil: Jizzax viloyati, Jizzax shahri, Bog'ishamol MFY, Tog'ishamol ko'chasi, 5-uy.\n"
             "Direktor: Aglamov Ziyoviddin Maxmudovich\n"
             "Telefon: +998 55 151 57 20\n"
-            "Email: jizzax@ecoekspertiza.uz\n"
-            "Manzil: Jizzax viloyati, Jizzax shahri, Bog'ishamol MFY, Tog'ishamol ko'chasi, 5-uy\n"
-            "Qabul vaqti: Dushanba 10:00 – 12:00"
+            "Qabul vaqti: Dushanba 10:00 dan 12:00 gacha."
         ),
     },
 
@@ -182,11 +197,10 @@ FAQ = [
         ],
         "answer": (
             "Qashqadaryo viloyati filiali:\n"
+            "Manzil: Qashqadaryo viloyati, Qarshi shahri, Jayxun ko'chasi, 5-uy.\n"
             "Direktor: Berdiyev Jaxongir Kamolovich\n"
             "Telefon: +998 75 221 00 68\n"
-            "Email: qashqadaryo@ecoekspertiza.uz\n"
-            "Manzil: Qashqadaryo viloyati, Qarshi shahri, Jayxun ko'chasi, 5-uy\n"
-            "Qabul vaqti: Dushanba 10:00 – 12:00"
+            "Qabul vaqti: Dushanba 10:00 dan 12:00 gacha."
         ),
     },
 
@@ -201,11 +215,10 @@ FAQ = [
         ],
         "answer": (
             "Navoiy viloyati filiali:\n"
+            "Manzil: Navoiy shahri, S. Ayniy ko'chasi, 27-uy.\n"
             "Direktor: Botirov Usmon Istamovich\n"
             "Telefon: +998 55 351 08 40\n"
-            "Email: navoiy@ecoekspertiza.uz\n"
-            "Manzil: Navoiy shahri, S. Ayniy ko'chasi, 27-uy\n"
-            "Qabul vaqti: Dushanba 10:00 – 12:00"
+            "Qabul vaqti: Dushanba 10:00 dan 12:00 gacha."
         ),
     },
 
@@ -216,11 +229,10 @@ FAQ = [
         ],
         "answer": (
             "Namangan viloyati filiali:\n"
+            "Manzil: Namangan viloyati, Namangan shahri, Xiva ko'chasi, 1-uy.\n"
             "Direktor: Xaydarov Akmal Sotvoldievich\n"
             "Telefon: +998 69 233 19 33\n"
-            "Email: namangan@ecoekspertiza.uz\n"
-            "Manzil: Namangan viloyati, Namangan shahri, Xiva ko'chasi, 1-uy\n"
-            "Qabul vaqti: Dushanba 10:00 – 12:00"
+            "Qabul vaqti: Dushanba 10:00 dan 12:00 gacha."
         ),
     },
 
@@ -235,11 +247,10 @@ FAQ = [
         ],
         "answer": (
             "Samarqand viloyati filiali:\n"
+            "Manzil: Samarqand viloyati, Samarqand shahri, Gagarin ko'chasi, 27-uy.\n"
             "Direktor: Po'lotov Jaxongir Farxod o'g'li\n"
             "Telefon: +998 55 706 98 28\n"
-            "Email: samarqand@ecoekspertiza.uz\n"
-            "Manzil: Samarqand viloyati, Samarqand shahri, Gagarin ko'chasi, 27-uy\n"
-            "Qabul vaqti: Dushanba 10:00 – 12:00"
+            "Qabul vaqti: Dushanba 10:00 dan 12:00 gacha."
         ),
     },
 
@@ -254,11 +265,10 @@ FAQ = [
         ],
         "answer": (
             "Surxondaryo viloyati filiali:\n"
+            "Manzil: Surxondaryo viloyati, Termiz shahri, Amir Temur ko'chasi, 69-uy.\n"
             "Direktor: Baxshikulov Abdukodir Majidovich\n"
             "Telefon: +998 76 221 47 75\n"
-            "Email: surxon@ecoekspertiza.uz\n"
-            "Manzil: Surxondaryo viloyati, Termiz shahri, Amir Temur ko'chasi, 69-uy\n"
-            "Qabul vaqti: Dushanba 10:00 – 12:00"
+            "Qabul vaqti: Dushanba 10:00 dan 12:00 gacha."
         ),
     },
 
@@ -273,11 +283,10 @@ FAQ = [
         ],
         "answer": (
             "Sirdaryo viloyati filiali:\n"
+            "Manzil: Sirdaryo viloyati, Guliston shahri, Birlashgan ko'chasi, 10-uy.\n"
             "Direktor: Qorayev Elmurod Saydaxmatovich\n"
             "Telefon: +998 67 225 06 39\n"
-            "Email: sirdaryo@ecoekspertiza.uz\n"
-            "Manzil: Sirdaryo viloyati, Guliston shahri, Birlashgan ko'chasi, 10-uy\n"
-            "Qabul vaqti: Dushanba 10:00 – 12:00"
+            "Qabul vaqti: Dushanba 10:00 dan 12:00 gacha."
         ),
     },
 
@@ -292,11 +301,10 @@ FAQ = [
         ],
         "answer": (
             "Farg'ona viloyati filiali:\n"
+            "Manzil: Farg'ona viloyati, Farg'ona shahri, Ibrat MFY, B. Marg'iloniy ko'chasi, 119-uy.\n"
             "Direktor: Babaxodjaev Maxamatmuso Yakubovich\n"
             "Telefon: +998 73 244 64 94\n"
-            "Email: fargona@ecoekspertiza.uz\n"
-            "Manzil: Farg'ona viloyati, Farg'ona shahri, \"Ibrat\" MFY, B. Marg'iloniy ko'chasi, 119-uy\n"
-            "Qabul vaqti: Dushanba 10:00 – 12:00"
+            "Qabul vaqti: Dushanba 10:00 dan 12:00 gacha."
         ),
     },
 
@@ -312,11 +320,10 @@ FAQ = [
         ],
         "answer": (
             "Toshkent viloyati filiali:\n"
+            "Manzil: Nurafshon shahri, Birlik MFY, Toshkent yo'li ko'chasi, 32-uy.\n"
             "Direktor: Xolmurodov Abdumajid Abduraimovich\n"
             "Telefon: +998 71 225 06 39\n"
-            "Email: toshvil@ecoekspertiza.uz\n"
-            "Manzil: Nurafshon shahri, Birlik MFY, Toshkent yo'li ko'chasi, 32-uy\n"
-            "Qabul vaqti: Dushanba 10:00 – 12:00"
+            "Qabul vaqti: Dushanba 10:00 dan 12:00 gacha."
         ),
     },
 
@@ -331,11 +338,10 @@ FAQ = [
         ],
         "answer": (
             "Xorazm viloyati filiali:\n"
+            "Manzil: Xorazm viloyati, Urganch shahri, Yoshlik ko'chasi, 61-uy.\n"
             "Direktor: Xayitov Jonibek Xayitboyevich\n"
             "Telefon: +998 95 620 10 42\n"
-            "Email: xorazm@ecoekspertiza.uz\n"
-            "Manzil: Xorazm viloyati, Urganch shahri, Yoshlik ko'chasi, 61-uy\n"
-            "Qabul vaqti: Dushanba 10:00 – 12:00"
+            "Qabul vaqti: Dushanba 10:00 dan 12:00 gacha."
         ),
     },
 
@@ -351,11 +357,10 @@ FAQ = [
         ],
         "answer": (
             "Toshkent shahar filiali:\n"
+            "Manzil: Toshkent shahri, Mirzo Ulug'bek tumani, Sayram ko'chasi, 15-uy.\n"
             "Direktor: Muminov Shaxboz Baxodirovich\n"
             "Telefon: +998 71 203 01 03\n"
-            "Email: toshsh@ecoekspertiza.uz\n"
-            "Manzil: Toshkent shahri, Mirzo Ulug'bek tumani, Sayram ko'chasi, 15-uy\n"
-            "Qabul vaqti: Dushanba 10:00 – 12:00"
+            "Qabul vaqti: Dushanba 10:00 dan 12:00 gacha."
         ),
     },
 
@@ -389,7 +394,7 @@ FAQ = [
             "12. Toshkent viloyati (Nurafshon) — +998 71 225 06 39\n"
             "13. Xorazm (Urganch) — +998 95 620 10 42\n"
             "14. Toshkent shahar — +998 71 203 01 03\n\n"
-            "Qabul vaqti (barchasi): Dushanba 10:00 – 12:00\n"
+            "Qabul vaqti (barchasi): Dushanba 10:00 dan 12:00 gacha.\n"
             "Aniq viloyat nomini yozsangiz, batafsil ma'lumot beraman."
         ),
     },
@@ -408,26 +413,25 @@ FAQ = [
             "phone", "contact", "call",
         ],
         "answer": (
-            "Markaz telefoni: +998 (71) 203-03-04\n"
-            "Email: info@ecoekspertiza.uz\n"
+            "Markaz telefoni: +998 71 203 03 04\n"
             "Telegram: @eco_service_support\n"
-            "Manzil: 100170, Toshkent shahar, Mirzo-Ulug'bek tumani, Sayram 5-tor ko'chasi, 15-uy"
+            "Manzil: Toshkent shahar, Mirzo-Ulug'bek tumani, Sayram 5-tor ko'chasi, 15-uy."
         ),
     },
 
     {
         "questions": [
-            # O'zbek
-            "manzil", "qayerda", "joylashuv",
-            # Rus / kirill  — "adres" YO'Q: "address" so'ziga substring mos keladi (bug)
+            # O'zbek — "qayerda" YO'Q: "qayerdan" ga substring mos keladi (bug)
+            "manzil", "qayerda joylash", "qayerda bor", "joylashuv",
+            # Rus / kirill  — "adres" YO'Q: "address" ga substring mos keladi
             "адрес", "находится", "где находится", "расположен",
             # Ingliz
             "address", "location", "where is",
         ],
         "answer": (
             "Markaz manzili:\n"
-            "100170, Toshkent shahar, Mirzo-Ulug'bek tumani,\n"
-            "Sayram 5-tor ko'chasi, 15-uy"
+            "Toshkent shahar, Mirzo-Ulug'bek tumani,\n"
+            "Sayram 5-tor ko'chasi, 15-uy."
         ),
     },
 
@@ -440,6 +444,6 @@ FAQ = [
             # Ingliz
             "working hours", "opening hours", "work schedule",
         ],
-        "answer": "Ish vaqti: Dushanba – Juma, 09:00 – 18:00. Filiallar qabul vaqti: Dushanba 10:00 – 12:00.",
+        "answer": "Ish vaqti: Dushanba dan Jumagacha, soat 09:00 dan 18:00 gacha. Filiallar qabul vaqti: Dushanba soat 10:00 dan 12:00 gacha.",
     },
 ]

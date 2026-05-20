@@ -33,20 +33,55 @@ def _read_docx(file_path: Path) -> str:
     return "\n".join(p.text for p in doc.paragraphs if p.text.strip())
 
 
-def _chunk_text(text: str, chunk_size: int = 800, overlap: int = 120) -> list[str]:
-    """Matnni chunk_size belgilik bo'laklarga, overlap qo'shib bo'ladi."""
+def _chunk_text(text: str, chunk_size: int = 1500, overlap: int = 300) -> list[str]:
+    """
+    Paragraph-aware chunking: paragraflar bo'yicha kesadi, jumlaning o'rtasida to'xtamaydi.
+    Yagona paragraf chunk_size dan katta bo'lsa — belgi bo'yicha kesiladi.
+    """
+    paragraphs = [p.strip() for p in text.split('\n') if p.strip()]
+
     chunks: list[str] = []
-    start = 0
-    text_len = len(text)
-    while start < text_len:
-        end = min(start + chunk_size, text_len)
-        chunk = text[start:end].strip()
-        if chunk:
-            chunks.append(chunk)
-        if end >= text_len:
-            break
-        start = end - overlap
-    return chunks
+    current: list[str] = []
+    current_len = 0
+
+    for para in paragraphs:
+        para_len = len(para)
+
+        # Joriy chunk to'ldi — saqlash
+        if current_len + para_len + 1 > chunk_size and current:
+            chunks.append("\n".join(current))
+            # Overlap: oxirgi bir necha paragrafni keyingi chunkga olib o'tish
+            overlap_buf: list[str] = []
+            overlap_chars = 0
+            for p in reversed(current):
+                if overlap_chars + len(p) <= overlap:
+                    overlap_buf.insert(0, p)
+                    overlap_chars += len(p)
+                else:
+                    break
+            current = overlap_buf
+            current_len = sum(len(p) for p in current)
+
+        # Bitta paragraf juda katta bo'lsa — belgi bo'yicha kesish
+        if para_len > chunk_size:
+            if current:
+                chunks.append("\n".join(current))
+                current = []
+                current_len = 0
+            start = 0
+            while start < para_len:
+                end = min(start + chunk_size, para_len)
+                chunks.append(para[start:end])
+                next_start = end - overlap
+                start = next_start if next_start > start else end
+        else:
+            current.append(para)
+            current_len += para_len + 1
+
+    if current:
+        chunks.append("\n".join(current))
+
+    return [c for c in chunks if c.strip()]
 
 
 def _embed_batch_with_retry(batch: list[str], batch_num: int, total: int) -> list[list[float]]:

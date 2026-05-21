@@ -18,10 +18,10 @@ CHROMA_DIR = BASE_DIR / "chroma_db"
 COLLECTION_NAME = "documents"
 
 # ChromaDB cosine distance chegarasi: bu qiymatdan yuqori = mos emas
-DISTANCE_THRESHOLD = 0.85
+DISTANCE_THRESHOLD = 0.72
 
 # ChromaDB dan olinadigan maksimal chunk soni
-TOP_K = 15
+TOP_K = 8
 
 # Til/alifbo aniqlash
 _UZ_CYRILLIC = set('ўқғҳЎҚҒҲ')   # O'zbek kirilli uchun xos harflar
@@ -252,7 +252,7 @@ async def get_answer(question: str) -> str:
 
     try:
         model = genai.GenerativeModel(
-            model_name="gemini-2.5-flash",
+            model_name="gemini-2.0-flash",
             system_instruction=SYSTEM_PROMPT,
         )
         response = model.generate_content(prompt)

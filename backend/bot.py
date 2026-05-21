@@ -11,13 +11,12 @@ Zarur ENV:
 """
 
 import asyncio
-import io
 import logging
 import os
+import subprocess
 from pathlib import Path
 
 from dotenv import load_dotenv
-from pydub import AudioSegment
 from telegram import Update
 from telegram.ext import (
     Application,
@@ -47,11 +46,14 @@ GREETING = (
 
 
 def _ogg_to_wav(ogg_bytes: bytes) -> bytes:
-    """Telegram dan kelgan OGG/OPUS audio ni WAV ga aylantiradi."""
-    audio = AudioSegment.from_ogg(io.BytesIO(ogg_bytes))
-    wav_io = io.BytesIO()
-    audio.export(wav_io, format="wav")
-    return wav_io.getvalue()
+    """Telegram dan kelgan OGG/OPUS audio ni WAV ga ffmpeg orqali aylantiradi."""
+    result = subprocess.run(
+        ['ffmpeg', '-y', '-i', 'pipe:0', '-f', 'wav', '-ar', '16000', '-ac', '1', 'pipe:1'],
+        input=ogg_bytes,
+        capture_output=True,
+        check=True,
+    )
+    return result.stdout
 
 
 async def cmd_start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:

@@ -18,10 +18,10 @@ CHROMA_DIR = BASE_DIR / "chroma_db"
 COLLECTION_NAME = "documents"
 
 # ChromaDB cosine distance chegarasi: bu qiymatdan yuqori = mos emas
-DISTANCE_THRESHOLD = 0.72
+DISTANCE_THRESHOLD = 0.80
 
 # ChromaDB dan olinadigan maksimal chunk soni
-TOP_K = 8
+TOP_K = 10
 
 # Til/alifbo aniqlash
 _UZ_CYRILLIC = set('ўқғҳЎҚҒҲ')   # O'zbek kirilli uchun xos harflar

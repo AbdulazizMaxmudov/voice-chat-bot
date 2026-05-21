@@ -83,9 +83,18 @@ async def handle_voice(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
         voice_file = await update.message.voice.get_file()
         ogg_bytes = await voice_file.download_as_bytearray()
 
-        # OGG → WAV konvertatsiya (pydub + ffmpeg)
+        # OGG → WAV konvertatsiya (ffmpeg subprocess)
         loop = asyncio.get_running_loop()
-        wav_bytes = await loop.run_in_executor(None, _ogg_to_wav, bytes(ogg_bytes))
+        try:
+            wav_bytes = await loop.run_in_executor(None, _ogg_to_wav, bytes(ogg_bytes))
+        except FileNotFoundError:
+            logger.error("ffmpeg topilmadi — server da o'rnatilmagan")
+            await thinking.edit_text("Server xatosi: ffmpeg o'rnatilmagan.")
+            return
+        except subprocess.CalledProcessError as e:
+            logger.error(f"ffmpeg konvertatsiya xatosi: {e.stderr.decode()}")
+            await thinking.edit_text("Audio konvertatsiyada xatolik yuz berdi.")
+            return
 
         # STT → savol matni
         question = await speech_to_text(wav_bytes)
@@ -102,13 +111,14 @@ async def handle_voice(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
         await thinking.edit_text(f"Savol: {question}\n\n{answer}")
 
         # Audio javobini yuborish
+        import io
         audio_io = io.BytesIO(audio_bytes)
         audio_io.name = "answer.mp3" if "mpeg" in mime_type else "answer.wav"
         await update.message.reply_audio(audio=audio_io)
 
     except Exception as e:
-        logger.error(f"Ovozli xabar xatosi: {e}", exc_info=True)
-        await thinking.edit_text("Ovozni qayta ishlashda xatolik. Iltimos, qaytadan urinib ko'ring.")
+        logger.error(f"Ovozli xabar xatosi: {type(e).__name__}: {e}", exc_info=True)
+        await thinking.edit_text(f"Xatolik: {type(e).__name__}: {e}")
 
 
 def create_application() -> Application:

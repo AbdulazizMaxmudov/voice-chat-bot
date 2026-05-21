@@ -84,17 +84,40 @@ FAQ = [
         ),
     },
 
-    # ── Salomlashish ───────────────────────────────────────────────────────────
+    # ── Salomlashish — O'zbek ──────────────────────────────────────────────────
     {
         "questions": [
             "salom", "assalom", "assalomu alaykum", "salomlar",
-            "привет", "здравствуйте", "здравствуй", "добрый день",
-            "добрый утро", "добрый вечер", "доброе утро", "доброе",
+        ],
+        "answer": (
+            "Assalomu alaykum! Davlat Ekologik Ekspertizasi Markazining raqamli yordamchisiga xush kelibsiz.\n"
+            "Men Vazirlar Mahkamasining 541 hamda 1038-qarorlariga muvofiq javob beraman, "
+            "hamda markaz xizmatlari, hududiy filiallar haqida ma'lumot beraman."
+        ),
+    },
+
+    # ── Salomlashish — Rus ─────────────────────────────────────────────────────
+    {
+        "questions": [
+            "привет", "здравствуйте", "здравствуй",
+            "добрый день", "доброе утро", "добрый вечер",
+        ],
+        "answer": (
+            "Здравствуйте! Добро пожаловать к цифровому ассистенту Государственного центра экологической экспертизы.\n"
+            "Я отвечаю в соответствии с постановлениями КМ РУз №541 и №1038, "
+            "а также предоставляю информацию об услугах центра и региональных филиалах."
+        ),
+    },
+
+    # ── Salomlashish — Ingliz ──────────────────────────────────────────────────
+    {
+        "questions": [
             "hello", "hey", "good morning", "good afternoon", "good evening",
         ],
         "answer": (
-            "Assalomu alaykum! Davlat Ekologik Ekspertizasi Markazining raqamli yordamchisiga xush kelibsiz.\n\n"
-            "Filiallar, manzillar, telefon raqamlar yoki markaz xizmatlari haqida savol bersangiz, javob beraman."
+            "Hello! Welcome to the digital assistant of the State Center for Environmental Expertise.\n"
+            "I answer in accordance with Cabinet of Ministers Resolutions No. 541 and No. 1038, "
+            "and provide information about the center's services and regional branches."
         ),
     },
 

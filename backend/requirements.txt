@@ -6,3 +6,5 @@ google-generativeai==0.8.3
 python-dotenv==1.0.1
 python-multipart==0.0.12
 requests==2.32.3
+python-telegram-bot==21.10
+pydub==0.25.1

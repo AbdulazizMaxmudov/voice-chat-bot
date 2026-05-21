@@ -18,15 +18,16 @@ from fastapi import FastAPI, File, HTTPException, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 
+BASE_DIR = Path(__file__).resolve().parent
+
+# .env faylini yuklash (boshqa importlardan oldin bo'lishi kerak)
+load_dotenv()
+
 from rag.ingest import ingest_documents
 from rag.query import get_answer
 from speech.stt import speech_to_text
 from speech.tts import text_to_speech
-
-BASE_DIR = Path(__file__).resolve().parent
-
-# .env faylini yuklash (import dan oldin bo'lishi kerak)
-load_dotenv()
+from bot import create_application
 
 logging.basicConfig(
     level=logging.INFO,
@@ -38,6 +39,7 @@ logger = logging.getLogger(__name__)
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     logger.info("Server ishga tushdi")
+
     # Auto-ingest: ChromaDB bo'sh yoki collection mavjud bo'lmasa — hujjatlarni yukla
     try:
         client = chromadb.PersistentClient(path=str(BASE_DIR / "chroma_db"))
@@ -54,7 +56,32 @@ async def lifespan(app: FastAPI):
             logger.info(f"ChromaDB tayyor: {count} ta chunk")
     except Exception as e:
         logger.warning(f"Avtomatik ingest tekshirishda xato: {e}")
+
+    # Telegram bot — token bo'lsa ishga tushirish
+    tg_app = None
+    if os.getenv("TELEGRAM_BOT_TOKEN"):
+        try:
+            tg_app = create_application()
+            await tg_app.initialize()
+            await tg_app.start()
+            await tg_app.updater.start_polling(drop_pending_updates=True)
+            logger.info("Telegram bot ishga tushdi")
+        except Exception as e:
+            logger.warning(f"Telegram bot ishga tushmadi: {e}")
+            tg_app = None
+
     yield
+
+    # Telegram bot ni to'xtatish
+    if tg_app:
+        try:
+            await tg_app.updater.stop()
+            await tg_app.stop()
+            await tg_app.shutdown()
+            logger.info("Telegram bot to'xtatildi")
+        except Exception as e:
+            logger.warning(f"Telegram bot to'xtatishda xato: {e}")
+
     logger.info("Server to'xtatildi")
 
 

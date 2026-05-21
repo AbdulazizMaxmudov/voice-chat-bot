@@ -28,9 +28,21 @@ def _setup_gemini() -> None:
 
 
 def _read_docx(file_path: Path) -> str:
-    """Word fayldan barcha matnni o'qiydi."""
+    """Word fayldan paragraflar va jadvallarni o'qiydi."""
     doc = Document(file_path)
-    return "\n".join(p.text for p in doc.paragraphs if p.text.strip())
+    parts: list[str] = []
+
+    for p in doc.paragraphs:
+        if p.text.strip():
+            parts.append(p.text.strip())
+
+    for table in doc.tables:
+        for row in table.rows:
+            cells = [c.text.strip() for c in row.cells if c.text.strip()]
+            if cells:
+                parts.append(" | ".join(cells))
+
+    return "\n".join(parts)
 
 
 def _chunk_text(text: str, chunk_size: int = 1500, overlap: int = 300) -> list[str]:

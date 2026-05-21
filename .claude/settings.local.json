@@ -7,7 +7,11 @@
       "PowerShell(dir \"C:\\\\Users\\\\User\\\\Desktop\\\\WORK\\\\voice-chat-bot\\\\frontend\\\\src\" -Recurse | Where-Object { !$_.PSIsContainer } | Select-Object FullName)",
       "PowerShell(New-Item *)",
       "PowerShell(dir \"C:\\\\Users\\\\User\\\\Desktop\\\\WORK\\\\voice-chat-bot\\\\frontend\\\\public\" -Recurse | Where-Object { !$_.PSIsContainer })",
-      "Bash(dir C:/Users/User/Desktop/WORK/voice-chat-bot/backend/ /a)"
+      "Bash(dir C:/Users/User/Desktop/WORK/voice-chat-bot/backend/ /a)",
+      "Bash(python -c ' *)",
+      "Bash(python -c \"import sys; lines=sys.stdin.readlines\\(\\); [print\\(l,end=''\\) for l in lines if 'ChromaDB' in l or 'Savol' in l or '---' in l or \\(not any\\(x in l for x in ['INFO','WARNING','ERROR','DEBUG']\\)\\)]\")",
+      "Bash(findstr /C:\"ChromaDB\" /C:\"JAVOB\" /C:\"ERROR\" /C:\"WARNING\" /C:\"xato\")",
+      "Bash(pip install *)"
     ]
   }
 }

@@ -96,13 +96,18 @@ def _setup_gemini() -> None:
 def _check_faq(question: str) -> str | None:
     """
     Savol FAQ kalit so'zlariga mos kelishini tekshiradi.
-    Kichik harfga o'tkazib taqqoslaydi.
+    Qisqa (<=3 harf) keywordlar uchun word boundary ishlatadi.
     """
     q_lower = question.lower()
     for item in FAQ:
         for keyword in item["questions"]:
-            if keyword.lower() in q_lower:
-                return item["answer"]
+            kw = keyword.lower()
+            if len(kw) <= 3:
+                if re.search(r'\b' + re.escape(kw) + r'\b', q_lower):
+                    return item["answer"]
+            else:
+                if kw in q_lower:
+                    return item["answer"]
     return None
 
 
@@ -193,7 +198,7 @@ async def get_answer(question: str) -> str:
         results = collection.query(
             query_embeddings=[query_embedding],
             n_results=n_results,
-            include=["documents", "distances"],
+            include=["documents", "distances", "metadatas"],
         )
     except Exception as e:
         logger.error(f"ChromaDB qidiruvda xato: {e}")
@@ -201,20 +206,38 @@ async def get_answer(question: str) -> str:
 
     docs: list[str] = results.get("documents", [[]])[0]
     distances: list[float] = results.get("distances", [[]])[0]
+    metadatas: list[dict] = results.get("metadatas", [[]])[0]
 
-    # Faqat DISTANCE_THRESHOLD dan past (yaqin) natijalarni olish
-    relevant_docs = [
-        doc for doc, dist in zip(docs, distances) if dist < DISTANCE_THRESHOLD
+    # Faqat DISTANCE_THRESHOLD dan past (yaqin) natijalarni olish, distancega qarab saralash
+    filtered = [
+        (doc, dist, meta)
+        for doc, dist, meta in zip(docs, distances, metadatas)
+        if dist < DISTANCE_THRESHOLD
     ]
+    filtered.sort(key=lambda x: x[1])  # eng yaqin (kichik distance) birinchi
 
-    logger.info(f"ChromaDB: {len(docs)} ta natija, {len(relevant_docs)} ta mos (threshold={DISTANCE_THRESHOLD})")
+    logger.info(f"ChromaDB: {len(docs)} ta natija, {len(filtered)} ta mos (threshold={DISTANCE_THRESHOLD})")
 
-    if not relevant_docs:
+    if not filtered:
         logger.info("ChromaDB dan mos kontekst topilmadi")
         return _no_answer(question)
 
-    # 4-qadam: Gemini ga yuborish
-    context = "\n\n---\n\n".join(relevant_docs)
+    # Takroriy chunklarni olib tashlash (overlap natijasida bir xil boshlanuvchilar)
+    seen_prefixes: set[str] = set()
+    deduped: list[tuple[str, float, dict]] = []
+    for doc, dist, meta in filtered:
+        prefix = doc[:120]
+        if prefix not in seen_prefixes:
+            seen_prefixes.add(prefix)
+            deduped.append((doc, dist, meta))
+
+    # 4-qadam: Gemini ga yuborish — har bir chunkga manbasini qo'shish
+    context_parts: list[str] = []
+    for doc, _dist, meta in deduped:
+        source = meta.get("source", "")
+        header = f"[Manba: {source}]\n" if source else ""
+        context_parts.append(f"{header}{doc}")
+    context = "\n\n---\n\n".join(context_parts)
 
     # Lotin alifbosida yozilgan savol → javob ham faqat lotinda bo'lsin
     lang = _detect_lang(question)
@@ -235,8 +258,15 @@ async def get_answer(question: str) -> str:
         response = model.generate_content(prompt)
         raw_answer = response.text.strip()
 
-        # Gemini javob bera olmaganini aniqlash
-        if raw_answer.strip().upper() == "BILMAYMAN":
+        # Gemini javob bera olmaganini aniqlash (o'zbek, rus, ingliz variantlari)
+        _no_info_markers = (
+            "bilmayman", "bilmiman",           # o'zbek lotin
+            "билмайман", "билмиман",            # o'zbek kirill
+            "не знаю", "не могу ответить",      # rus
+            "i don't know", "i cannot answer",  # ingliz
+        )
+        answer_lower = raw_answer.strip().lower()
+        if any(marker in answer_lower for marker in _no_info_markers):
             logger.info("Gemini kontekst asosida javob topa olmadi")
             return _no_answer(question)
 
